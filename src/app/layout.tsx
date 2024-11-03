@@ -1,10 +1,10 @@
-
 import '../styles/globals.css';
 import { ReactNode } from 'react';
 import ClientProvider from '../components/ClientProvider';
 import NavBar from '../components/NavBar';
 import AISettingsManager from '../components/AISettingsManager';
 import ThemeManager from '../components/ThemeManager';
+import { SessionProvider } from '@/context/SessionContext';
 
 export const metadata = {
   title: 'Transformation Math App',
@@ -21,12 +21,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <ClientProvider>
-          <AISettingsManager />
-          <ThemeManager />
-          <NavBar />
-          <main className="min-h-screen">
-            {children}
-          </main>
+          <SessionProvider>
+            <AISettingsManager />
+            <ThemeManager />
+            <NavBar />
+            <main className="min-h-screen">
+              {children}
+            </main>
+          </SessionProvider>
         </ClientProvider>
       </body>
     </html>

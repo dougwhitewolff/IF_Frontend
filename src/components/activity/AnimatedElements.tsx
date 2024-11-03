@@ -31,3 +31,7 @@ export const AnimatedContent = styled.div`
 export const AnimatedFeedback = styled.div`
   animation: ${slideIn} 0.3s ease-out;
 `;
+
+export const LoadingSpinner: React.FC = () => (
+  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+);
