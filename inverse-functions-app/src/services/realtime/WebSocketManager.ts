@@ -13,7 +13,9 @@ import {
 import { formatMessage } from '../utils/messageFormatter';
 import { logger } from '../../utils/logger';
 import { wsConfig } from '@config/wsConfig';
-import { config } from '../../config/env';
+import { config } from '../../../config/.env';
+import { validateMessageType } from './validators/messageValidator';
+import { RateLimitMonitor } from './monitoring/RateLimitMonitor';
 
 export class WebSocketManager extends EventEmitter {
     private ws: WebSocket | null = null;
@@ -27,10 +29,24 @@ export class WebSocketManager extends EventEmitter {
         tokens: { limit: 0, remaining: 0, resetTime: 0 },
         requests: { limit: 0, remaining: 0, resetTime: 0 }
     };
+    private rateLimitMonitor: RateLimitMonitor;
 
     constructor(callbacks: WebSocketCallbacks = {}) {
         super();
         this.callbacks = callbacks;
+        this.rateLimitMonitor = new RateLimitMonitor();
+        
+        this.rateLimitMonitor.on('limit_warning', (warning) => {
+            this.emit('rate_limit_warning', warning);
+            logger.warn('Rate limit warning:', warning);
+        });
+        
+        this.rateLimitMonitor.on('limit_exceeded', (info) => {
+            this.emit('rate_limit_exceeded', info);
+            logger.error('Rate limit exceeded:', info);
+        });
+
+        this.rateLimitMonitor.startMonitoring();
     }
 
     public connect(): void {
@@ -75,6 +91,13 @@ export class WebSocketManager extends EventEmitter {
         this.ws.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data) as OpenAIMessage;
+                const validation = validateMessageType(message);
+                
+                if (!validation.isValid) {
+                    logger.error('Invalid message type:', validation.error);
+                    return;
+                }
+                
                 this.handleIncomingMessage(message);
             } catch (error) {
                 logger.error('Failed to parse message:', error);
@@ -140,11 +163,11 @@ export class WebSocketManager extends EventEmitter {
         this.emit('message', message);
     }
 
-    private updateRateLimits(message: OpenAIMessage): void {
-        const limits = message as any;
-        if (!Array.isArray(limits.rate_limits)) return;
+    private updateRateLimits(message: any): void {
+        const limits = message.rate_limits;
+        if (!Array.isArray(limits)) return;
 
-        limits.rate_limits.forEach((limit: any) => {
+        limits.forEach((limit: any) => {
             if (limit.name in this.rateLimits) {
                 this.rateLimits[limit.name as keyof RateLimits] = {
                     limit: limit.limit,
@@ -154,7 +177,7 @@ export class WebSocketManager extends EventEmitter {
             }
         });
 
-        this.checkRateLimits();
+        this.rateLimitMonitor.updateLimits(this.rateLimits);
     }
 
     private checkRateLimits(): void {
@@ -207,6 +230,11 @@ export class WebSocketManager extends EventEmitter {
         }
 
         const formattedMessage = formatMessage(message);
+        const validation = validateMessageType(formattedMessage);
+        
+        if (!validation.isValid) {
+            throw new Error(validation.error);
+        }
         
         return new Promise((resolve, reject) => {
             try {
@@ -252,6 +280,8 @@ export class WebSocketManager extends EventEmitter {
     }
 
     public disconnect(): void {
+        this.rateLimitMonitor.stopMonitoring();
+
         if (this.ws && this.connectionState === 'connected') {
             this.ws.close(1000, 'Client disconnected');
         }
