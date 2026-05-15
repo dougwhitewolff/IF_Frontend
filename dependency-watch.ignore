@@ -1,0 +1,43 @@
+# dependency-watch.ignore
+#
+# Packages intentionally NOT tracked as rows in dependency-watch.csv.
+# Low-blast-radius deps already covered by Dependabot / npm audit.
+# Listing them here keeps Honesty Layer 1 (manifest sync) from flagging them
+# as "coverage gaps" every week.
+#
+# Format: one pattern per line. Exact names or trailing-* prefix globs.
+#
+# NOT a place to hide risky deps. Anything that can break the voice agent
+# (OpenAI Realtime contract, relay-server) belongs in dependency-watch.csv.
+
+# --- presentational / utility ---
+classnames
+sass
+uuid
+react-dom
+
+# --- env loading ---
+dotenv
+
+# --- root tooling (Babel scanner + CLI utils in IF_Frontend/package.json) ---
+@babel/parser
+@babel/traverse
+chalk
+esprima
+yargs
+
+# --- test / build toolchain (devDependencies) ---
+@testing-library/*
+ajv
+concurrently
+fs-extra
+identity-obj-proxy
+jest
+jest-environment-jsdom
+jest-websocket-mock
+nodemon
+ts-jest
+typescript
+
+# --- type stubs ---
+@types/*
